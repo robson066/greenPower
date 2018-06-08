@@ -13,14 +13,14 @@ using GreenPower.Models;
 using greenPower.Models;
 using static GreenPower.Models.UnsafeStruct;
 
-namespace GreenPower.Models
+namespace greenPower.Models
 {
 
-    public class Core
+    public partial class Core
     {
-        RECEIVED Received = new RECEIVED();
-        TOSEND ToSend = new TOSEND();
-
+        RECEIVED received = new RECEIVED();
+        TOSEND toSend = new TOSEND();
+        Data data = new Data();
         private readonly BackgroundWorker worker = new BackgroundWorker();
         private double[] Yaxis = new double[50];
 
@@ -33,27 +33,7 @@ namespace GreenPower.Models
 
         #endregion
 
-        #region Deklaracja i inicjalizacja stałych
 
-        private const byte _flashEraseSector = 3;
-        private const byte _flashWriteData = 4;
-        private const byte _runProgramFromFlashOn = 5;
-        private const byte _runProgramFromFlashOff = 6;
-        private const byte _read12Data = 10;
-        private const byte _write1Data = 13;
-        private const byte _read1Data = 14;
-        private const byte _readBlockData = 15;
-        private const byte _writeBlockData = 16;
-
-        public const char Header = '@';
-        public const uint _timeToWait = 10000;
-        public const uint _timeToWaitFast = 200;
-
-        private const int ErrorOk = 0;
-        private const int ErrorMissSh363 = 1;
-        private const int ErrorMissUsbConnection = 3;
-
-        #endregion
 
         #region Deklaracja i inicjalizacja zmiennych na potrzeby metod
 
@@ -77,107 +57,12 @@ namespace GreenPower.Models
         public byte[] DataOut = new byte[512];
         public byte[] DataIn = new byte[512];
 
-        public static int Error;
-        public static bool Success = false;
 
-        private static readonly IntPtr _invalidHandleValue = new IntPtr(-1);
         public static bool runBackgruondWorker = true;
 
-        private static uint _quantityOfSent, _quantityOfReceived;
 
         #endregion
 
-
-        private static bool ReadData(IntPtr handle, byte[] buffer, uint dwSize, ref uint lpdwBytesRead, uint dwTimeout)
-        {
-            uint tmpReadTO = 0, tmpWriteTO = 0;
-            int status = SiUsbXp.SI_SUCCESS;
-
-            SiUsbXp.SI_GetTimeouts(ref tmpReadTO, ref tmpWriteTO); 
-            SiUsbXp.SI_SetTimeouts(dwTimeout, 0); 
-            status = SiUsbXp.SI_Read(handle, buffer, dwSize, ref lpdwBytesRead, IntPtr.Zero); 
-            SiUsbXp.SI_SetTimeouts(tmpReadTO, tmpWriteTO); 
-            return (status == SiUsbXp.SI_SUCCESS);
-        }
-
-        private static bool WriteData(IntPtr handle, byte[] buffer, uint dwSize, ref uint lpdwBytesWritten, uint dwTimeout)
-        {
-            uint tmpReadTO = 0, tmpWriteTO = 0;
-            int status = SiUsbXp.SI_SUCCESS;
-
-            SiUsbXp.SI_GetTimeouts(ref tmpReadTO, ref tmpWriteTO); 
-            SiUsbXp.SI_SetTimeouts(0, dwTimeout); 
-            status = SiUsbXp.SI_Write(handle, buffer, dwSize, ref lpdwBytesWritten, IntPtr.Zero); 
-            SiUsbXp.SI_SetTimeouts(tmpReadTO, tmpWriteTO); 
-            return (status == SiUsbXp.SI_SUCCESS);
-        }
-
-        public static bool WriteReadUSB(IntPtr hMasterCOM, uint quantityToSend, uint quantityToReceive, ref byte[] dataToSend, ref byte[] dataReceived, uint timeoutForReceive)
-        {
-
-            byte[] BufferOutput = new byte[512];
-            byte[] BufferInput = new byte[512];
-
-            for (int i = 0; i < 512; i++) BufferOutput[i] = 0;
-            for (int i = 0; i < 512; i++) BufferInput[i] = 0;
-
-            Success = false;
-
-            if ((hMasterCOM == null) || (hMasterCOM == _invalidHandleValue))
-            {
-                Error = ErrorMissSh363;
-                return Success;
-            }
-            else
-            {
-                if ((quantityToSend < 0) || (quantityToSend > 512)) return Success;
-                else
-                {
-                    for (int i = 0; i < 512; i++) BufferOutput[i] = 0;
-                    for (int i = 0; i < 512; i++) BufferInput[i] = 0;
-
-                    if ((dataToSend == null) || (dataReceived == null)) return Success;
-                    else
-                    {
-                        Array.Copy(dataToSend, BufferOutput, quantityToSend);
-
-                        if (!WriteData(hMasterCOM, BufferOutput, quantityToSend, ref _quantityOfSent, timeoutForReceive)) return Success;
-                        else
-                        {
-                            if (quantityToSend != _quantityOfSent) return Success;
-                            else
-                            {
-                                if ((quantityToReceive < 0) || (quantityToReceive > 512)) return Success;
-                                else
-                                {
-                                    if (ReadData(hMasterCOM, BufferInput, quantityToReceive, ref _quantityOfReceived, timeoutForReceive) != true)
-                                    {
-                                        Error = ErrorMissUsbConnection;
-                                        return Success;
-                                    }
-                                    else
-                                    {
-                                        if (quantityToReceive != _quantityOfReceived)
-                                        {
-                                            Error = ErrorMissUsbConnection;
-                                            return Success;
-                                        }
-                                        else
-                                        {
-                                            Error = ErrorOk;
-                                            Array.Copy(BufferInput, dataReceived, quantityToReceive);
-                                            Success = true;
-                                            return Success;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-        }
 
         public void Connect(short serial_number)
         {
@@ -190,14 +75,14 @@ namespace GreenPower.Models
                 {
                     if (d > 9) break;
 
-                    Error = ErrorOk;
-                    if (SiUsbXp.SI_GetProductString(d, _devStr, SiUsbXp.SI_RETURN_LINK_NAME) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
-                    if (SiUsbXp.SI_GetProductString(d, _serialStr, SiUsbXp.SI_RETURN_SERIAL_NUMBER) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
-                    if (SiUsbXp.SI_GetProductString(d, _vid, SiUsbXp.SI_RETURN_VID) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
-                    if (SiUsbXp.SI_GetProductString(d, _pid, SiUsbXp.SI_RETURN_PID) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
-                    if (SiUsbXp.SI_GetProductString(d, _descriptionStr, SiUsbXp.SI_RETURN_DESCRIPTION) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
+                    ErrorHandler = ERROR_OK;
+                    if (SiUsbXp.SI_GetProductString(d, _devStr, SiUsbXp.SI_RETURN_LINK_NAME) != SiUsbXp.SI_SUCCESS) ErrorHandler = ErrorMissSh363;
+                    if (SiUsbXp.SI_GetProductString(d, _serialStr, SiUsbXp.SI_RETURN_SERIAL_NUMBER) != SiUsbXp.SI_SUCCESS) ErrorHandler = ErrorMissSh363;
+                    if (SiUsbXp.SI_GetProductString(d, _vid, SiUsbXp.SI_RETURN_VID) != SiUsbXp.SI_SUCCESS) ErrorHandler = ErrorMissSh363;
+                    if (SiUsbXp.SI_GetProductString(d, _pid, SiUsbXp.SI_RETURN_PID) != SiUsbXp.SI_SUCCESS) ErrorHandler = ErrorMissSh363;
+                    if (SiUsbXp.SI_GetProductString(d, _descriptionStr, SiUsbXp.SI_RETURN_DESCRIPTION) != SiUsbXp.SI_SUCCESS) ErrorHandler = ErrorMissSh363;
 
-                    if (Error == ErrorOk)
+                    if (ErrorHandler == ERROR_OK)
                     {
                         _serial = Int16.Parse(_serialStr.ToString());
 
@@ -224,71 +109,65 @@ namespace GreenPower.Models
             }
             else
             {
-                Error = ErrorMissSh363;
+                ErrorHandler = ErrorMissSh363;
                 //MainWindowViewModel.MessageQueue.Enqueue("Błąd! Nie znaleziono sterownika SH363");
             }
 
         }
 
-        public unsafe void Read12Variables(uint[] address, ref float[] receivedData, int[] type)
+
+        private void PrepareHeader(ref byte[] data, byte command, byte checkSum)
         {
-            _quantity = 52;
 
-            DataOut[0] = Convert.ToByte(Header);
-            DataOut[1] = _read12Data;
-            DataOut[2] = _quantity;
-            DataOut[3] = 0;
+            data[0] = Convert.ToByte(_HEADER);
+            data[1] = command;
+            data[2] = checkSum;
+            data[3] = 0;
 
-            int j = 0;
-            for (i = 4; i < _quantity; i = i + 4)
+        }
+        public void Read12Variables(uint[] address, ref float[] receivedData, int[] type)
+        {
+
+            
+            byte _quantity = 52; // 4 + 4*12 
+            byte _checkSum = 0;            
+
+            PrepareHeader(ref DataOut, _READ12DATA, _quantity);
+
+            for (int i = 4; i < _quantity; i = i + 4)
             {
-                if (i == 4) j = 0;
-                ToSend._uint = address[j];
-                byte[] tempAddress = new byte[4];
-                tempAddress = BitConverter.GetBytes(address[j]);
-                j++;
+                int j = i/4;
+                byte[] tempAddress = BitConverter.GetBytes(address[j]);
+
                 DataOut[i] = tempAddress[0];
                 DataOut[i + 1] = tempAddress[1];
                 DataOut[i + 2] = tempAddress[2];
                 DataOut[i + 3] = tempAddress[3];
             }
 
-            for (i = 0; i < _quantity + 1; i++) DataIn[i] = 0;
+            Array.Clear(DataIn, 0, DataIn.Length);
 
-            _checkSum = 0;
+            DataOut[3] = PrepareCheckSum(DataIn, _quantity);
 
-            for (i = 4; i < _quantity; i++) _checkSum += DataOut[i];
-            for (i = 0; i < 3; i++) _checkSum += DataOut[i];
-            DataOut[3] = _checkSum;
+            ErrorHandler = SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1); if(ErrorHandler != SiUsbXp.SI_SUCCESS) return;
 
-            if (SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
+            UsbHandler.WriteReadUSB(hMasterCOM, _quantity, _quantity, ref DataOut, ref DataIn, _timeToWait);
 
-            WriteReadUSB(hMasterCOM, _quantity, _quantity, ref DataOut, ref DataIn, _timeToWait);
-
-            if (Error == ErrorOk)
+            if (ErrorHandler == ERROR_OK)
             {
-                if (DataIn[0] != Convert.ToByte(Header) ||
-                    DataIn[1] != _read12Data ||
+                if (DataIn[0] != Convert.ToByte(_HEADER) ||
+                    DataIn[1] != _READ12DATA ||
                     DataIn[2] != 52)
-                    Error = ErrorMissUsbConnection;
+                    ErrorHandler = ERROR_MISS_USB;
                 else
                 {
-
                     for (i = 4; i < _quantity; i = i + 4)
                     {
-                        if (i == 4) j = 0;
-                        fixed (RECEIVED* p = &Received)
-                        {
-
-                            p->_byte[0] = DataIn[i];
-                            p->_byte[1] = DataIn[i + 1];
-                            p->_byte[2] = DataIn[i + 2];
-                            p->_byte[3] = DataIn[i + 3];
-                        }
-
-                        receivedData[j] = Received._float;
-                        Received._float = 0;
-                        j++;
+                        int j = i/4;
+                        float receivedDataTemp = BitConverter.ToInt32(DataIn, i);
+                        receivedData[j] = receivedDataTemp;
+                        receivedDataTemp = 0;
+                        
                         if (j > 11) break;
                     }
 
@@ -297,77 +176,38 @@ namespace GreenPower.Models
 
         }
 
-        public unsafe void Write1Variable(uint address, ref float data, int typ)
+        public void Write1Variable(uint address, ref float data, int typ)
         {
-            _quantity = 12;
+            byte _quantity = 12;
+            byte[] tempData = BitConverter.GetBytes(data);
+            byte[] tempAddress = BitConverter.GetBytes(address);
+            
+            PrepareHeader(ref DataOut, _WRITE1DATA, _quantity);
 
-            fixed (TOSEND* d = &ToSend)
+            DataOut[3] = PrepareCheckSum(DataOut, _quantity);
+
+            DataOut[4] = tempData[0];
+            DataOut[5] = tempData[1];
+            DataOut[6] = tempData[2];
+            DataOut[7] = tempData[3];
+
+            DataOut[8] = tempAddress[0];
+            DataOut[9] = tempAddress[1];
+            DataOut[10] = tempAddress[2];
+            DataOut[11] = tempAddress[3];
+            
+            ErrorHandler = SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1); if(ErrorHandler != SiUsbXp.SI_SUCCESS) return;
+
+            UsbHandler.WriteReadUSB(hMasterCOM, _quantity, 4, ref DataOut, ref DataIn, _timeToWait);
+
+            if (ErrorHandler == SiUsbXp.SI_SUCCESS)
             {
-                d->_uint = address;
-            }
-
-            Received._float = data;
-
-            DataOut[0] = Convert.ToByte(Header);
-            DataOut[1] = _write1Data;
-            DataOut[2] = _quantity;
-            DataOut[3] = 0;
-
-            fixed (RECEIVED* z = &Received)
-            {
-                DataOut[4] = z->_byte[0];
-                DataOut[5] = z->_byte[1];
-                DataOut[6] = z->_byte[2];
-                DataOut[7] = z->_byte[3];
-            }
-
-            fixed (TOSEND* d = &ToSend)
-            {
-                DataOut[8] = d->_byte[0];
-                DataOut[9] = d->_byte[1];
-                DataOut[10] = d->_byte[2];
-                DataOut[11] = d->_byte[3];
-            }
-
-            _checkSum = 0;
-            for (i = 4; i < _quantity; i++) _checkSum += DataOut[i];
-            for (i = 0; i < 3; i++) _checkSum += DataOut[i];
-            DataOut[3] = _checkSum;
-
-            if (SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1) != SiUsbXp.SI_SUCCESS) Error = ErrorMissSh363;
-
-            WriteReadUSB(hMasterCOM, _quantity, 4, ref DataOut, ref DataIn, _timeToWait);
-
-            if (Error == ErrorOk)
-            {
-                if (DataIn[0] != Convert.ToByte(Header) ||
-                    DataIn[1] != _write1Data ||
+                if (DataIn[0] != Convert.ToByte(_HEADER) ||
+                    DataIn[1] != _WRITE1DATA ||
                     DataIn[2] != 4 ||
                     DataIn[3] != 81)
-                    Error = ErrorMissUsbConnection;
+                    ErrorHandler = ERROR_MISS_USB;
             }
-        }
-
-        public void Initialize()
-        {
-            #region INICJALIZACJA PARAMETRÓW I ADRESÓW
-            Data.VariableName[0] = "iwiatrAF"; Data.VariableAddress[0] = 0xb830b;
-            Data.VariableName[1] = "uwiatrVF"; Data.VariableAddress[1] = 0xb830c;
-            Data.VariableName[2] = "iwiatrA_buck"; Data.VariableAddress[2] = 0xb82ff;
-            Data.VariableName[3] = "uwiatrV_buck"; Data.VariableAddress[3] = 0xb82fe; 
-
-            Data.VariableName[4] = "ipanelAF"; Data.VariableAddress[4] = 0xb8307;
-            Data.VariableName[5] = "upanelVF"; Data.VariableAddress[5] = 0xb8308;
-            Data.VariableName[6] = "ipanelA_buck"; Data.VariableAddress[6] = 0xb8305;
-            Data.VariableName[7] = "upanelV_buck"; Data.VariableAddress[7] = 0xb8304;
-
-            Data.VariableName[8] = "iakuAF"; Data.VariableAddress[8] = 0xb8312;
-            Data.VariableName[9] = "uakuVF"; Data.VariableAddress[9] = 0xb8311;
-            Data.VariableName[10] = "izasobnikAF"; Data.VariableAddress[10] = 0xb82ea;
-            Data.VariableName[11] = "uzasobnikVF"; Data.VariableAddress[11] = 0xb82bb;
-            #endregion
-
-            foreach (int i in Data.VariableType) Data.VariableType[i] = 0;
         }
 
         private void WorkerDoWork(object sender, DoWorkEventArgs e)
@@ -381,11 +221,21 @@ namespace GreenPower.Models
                 }
                 if (!Core.runBackgruondWorker) break;
 
-                Read12Variables(Data.VariableAddress, ref Data.VariableValue, Data.VariableType);
+                Read12Variables(data.Address, ref data.Value, data.Type);
 
                 Thread.Sleep(Core.AutoRefreshDelay);
 
             }
+        }
+
+        private byte PrepareCheckSum(byte[] data, byte amountOfData)
+        {
+            byte _checkSum = 0;
+
+            for (i = 4; i < amountOfData; i++) _checkSum += data[i];
+            for (i = 0; i < 3; i++) _checkSum += data[i];
+
+            return _checkSum;
         }
 
         public void UpdateData()
@@ -394,6 +244,37 @@ namespace GreenPower.Models
             worker.RunWorkerAsync();
         }
 
+        static float[] ConvertByteArrayToFloat(byte[] bytes)
+        {
+            if(bytes.Length % 4 != 0) throw new ArgumentException();
 
+            float[] floats = new float[bytes.Length/4];
+            for(int i = 0; i < floats.Length; i++)
+            {
+                floats[i] = BitConverter.ToSingle(bytes, i*4);
+            }
+
+            return floats;
+        }  
+
+         static float ConvertByteArrayToOneFloat(byte[] bytes)
+        {
+            if(bytes.Length % 4 != 0) throw new ArgumentException();
+
+            return BitConverter.ToSingle(bytes, 4);;
+        }      
+
+        private SiUsbHandler UsbHandler { get; }
+        
+        public int ErrorHandler { get => errorHandler; set 
+        {
+            if(value != SiUsbXp.SI_SUCCESS) UpdateData(); // zmienić na metodę do obsługi błedu
+            else errorHandler = value; // coś tam
+        }
+        }
+
+        private int errorHandler;
+    
     }
+
 }
