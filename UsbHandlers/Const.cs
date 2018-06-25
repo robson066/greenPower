@@ -1,4 +1,4 @@
-namespace greenPower.Models
+namespace GreenPower.UsbHandlers
 {
     public partial class Core
     {

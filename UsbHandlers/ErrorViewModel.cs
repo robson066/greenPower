@@ -1,6 +1,6 @@
 using System;
 
-namespace GreenPower.Models
+namespace GreenPower.UsbHandlers
 {
     public class ErrorViewModel
     {

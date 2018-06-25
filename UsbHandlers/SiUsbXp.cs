@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace GreenPower.Models
+namespace GreenPower.UsbHandlers
 {
     public class SiUsbXp
     {
