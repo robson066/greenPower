@@ -13,8 +13,15 @@ using GreenPower.UsbHandlers;
 
 namespace GreenPower.UsbHandlers
 {
+    /// <summary>
+    /// Main class to handle connection and data transmission
+    /// </summary>
     public partial class Core
     {
+        /// <summary>
+        /// Connect with the device - sh363 board
+        /// </summary>
+        /// <param name="serialNum"></param>
         public void Connect(short serialNum)
         {
             uint lpdwNumDevices = 0;
@@ -35,16 +42,16 @@ namespace GreenPower.UsbHandlers
                     {
                         ErrorHandler = SiUsbXp.SI_Open(boardNumber, ref hMasterCOM);
 
-                        if (serial > 15) 
+                        if (serial > 15)
                         {
-                            ErrorHandler = SiUsbXp.SI_SetBaudRate(hMasterCOM, 921600); 
+                            ErrorHandler = SiUsbXp.SI_SetBaudRate(hMasterCOM, 921600);
                         }
 
-                        if (serial < 16) 
-                        { 
-                            ErrorHandler = SiUsbXp.SI_SetBaudRate(hMasterCOM, 1000000); 
+                        if (serial < 16)
+                        {
+                            ErrorHandler = SiUsbXp.SI_SetBaudRate(hMasterCOM, 1000000);
                         }
-
+                        // Prepare line control
                         ErrorHandler = SiUsbXp.SI_SetLineControl(hMasterCOM, (8 << 8) + (0 << 4) + (0 << 0));
                         ErrorHandler = SiUsbXp.SI_SetTimeouts(1000, 1000);
 
@@ -52,7 +59,6 @@ namespace GreenPower.UsbHandlers
                     }
                 }
             }
-
         }
 
         public void Read12Data(uint[] address)
@@ -62,9 +68,9 @@ namespace GreenPower.UsbHandlers
 
             PrepareHeader(ref dataOut, _READ12DATA, amount);
 
-            for(int i = 1; i < amount/4; i++)
+            for (int i = 1; i < amount / 4; i++)
             {
-                PrepareByteData(ref dataOut, address[i], i*4);                
+                PrepareByteData(ref dataOut, address[i], i * 4);
             }
 
             Array.Clear(dataIn, 0, dataIn.Length);
@@ -72,7 +78,7 @@ namespace GreenPower.UsbHandlers
             byte _checkSum = PrepareCheckSum(dataIn, amount);
             dataOut[3] = _checkSum;
 
-            ErrorHandler = SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1); 
+            ErrorHandler = SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1);
             ErrorHandler = UsbHandler.WriteReadUSB(hMasterCOM, amount, amount, ref dataOut, ref dataIn, _timeToWait);
 
             // TODO: check error
@@ -81,9 +87,9 @@ namespace GreenPower.UsbHandlers
                 ErrorHandler = ERROR_MISS_USB;
             else
             {
-                for (int i = 1; i < amount/4; i++)
+                for (int i = 1; i < amount / 4; i++)
                 {
-                    data.DataValue[i*4] = BitConverter.ToInt32(dataIn, i);
+                    data.DataValue[i * 4] = BitConverter.ToInt32(dataIn, i);
                     if (i > 11) break;
                 }
             }
@@ -103,7 +109,7 @@ namespace GreenPower.UsbHandlers
         public void Write1Data(uint address, ref float dataToWrite, int typ)
         {
             byte amount = 12;
-            
+
             PrepareHeader(ref dataOut, _WRITE1DATA, amount);
 
             byte _checkSum = PrepareCheckSum(dataOut, amount);
@@ -111,12 +117,12 @@ namespace GreenPower.UsbHandlers
 
             PrepareByteData(ref dataOut, dataToWrite, 4);
             PrepareByteData(ref dataOut, address, 8);
-            
-            ErrorHandler = SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1); 
-            if(ErrorHandler != SiUsbXp.SI_SUCCESS) return;
+
+            ErrorHandler = SiUsbXp.SI_FlushBuffers(hMasterCOM, 1, 1);
+            if (ErrorHandler != SiUsbXp.SI_SUCCESS) return;
 
             ErrorHandler = UsbHandler.WriteReadUSB(hMasterCOM, amount, 4, ref dataOut, ref dataIn, _timeToWait);
-            if(ErrorHandler != SiUsbXp.SI_SUCCESS) return;
+            if (ErrorHandler != SiUsbXp.SI_SUCCESS) return;
 
             if (CheckReturnedHeader(dataIn, _WRITE1DATA, amount) ||
                 dataIn[3] == 81) // _checkSum ?
@@ -125,7 +131,7 @@ namespace GreenPower.UsbHandlers
             {
                 ErrorHandler = SiUsbXp.SI_WRITE_ERROR;
             }
-            
+
         }
 
         private void WorkerHandler(object sender, DoWorkEventArgs e)
@@ -148,21 +154,23 @@ namespace GreenPower.UsbHandlers
         {
             worker.DoWork += new DoWorkEventHandler(WorkerHandler);
             worker.RunWorkerAsync();
-        }     
+        }
 
         private SiUsbHandler UsbHandler { get; }
-        
-        public int ErrorHandler { get => errorHandler; set 
+
+        public int ErrorHandler
         {
-            errorHandler = value; 
-            if(errorHandler != SiUsbXp.SI_SUCCESS) UpdateData(); // TODO: change to error handler
-        }
+            get => errorHandler; set
+            {
+                errorHandler = value;
+                if (errorHandler != SiUsbXp.SI_SUCCESS) UpdateData(); // TODO: change to error handler
+            }
         }
 
         private int errorHandler;
-        private Data data = Data.GetData();
+        private DataRepository data = DataRepository.GetData();
         private readonly BackgroundWorker worker = new BackgroundWorker();
-        
+
         public bool connectionStatus = false;
 
         public const int refreshDelay = 100;
@@ -172,13 +180,13 @@ namespace GreenPower.UsbHandlers
         private byte[] dataIn = new byte[512];
 
         public static bool runBackgruondWorker = true;
-        
-        private StringBuilder _devStr = new StringBuilder(SiUsbXp.SI_MAX_DEVICE_STRLEN);  
+
+        private StringBuilder _devStr = new StringBuilder(SiUsbXp.SI_MAX_DEVICE_STRLEN);
         private StringBuilder _serialStr = new StringBuilder();
         private StringBuilder _descriptionStr = new StringBuilder();
         private StringBuilder _vid = new StringBuilder();
         private StringBuilder _pid = new StringBuilder();
-    
+
     }
 
 }
